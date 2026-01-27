@@ -14,7 +14,7 @@ Terraform module for deploying PgDog Enterprise Edition on AWS with Kubernetes.
 
 ```hcl
 module "pgdog" {
-  source = "path/to/pgdog-ee-terraform"
+  source = "github.com/pgdogdev/pgdog-ee-terraform"
 
   # Required
   db_identifier        = "pgdog-production"
@@ -93,8 +93,8 @@ module "pgdog" {
 
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
-| `install_ingress_nginx` | Install nginx-ingress-controller | `bool` | `true` |
-| `install_cert_manager` | Install cert-manager and LetsEncrypt ClusterIssuer | `bool` | `true` |
+| `install_ingress_nginx` | Install nginx-ingress-controller | `bool` | `false` |
+| `install_cert_manager` | Install cert-manager and LetsEncrypt ClusterIssuer | `bool` | `false` |
 | `letsencrypt_email` | Email for LetsEncrypt notifications | `string` | `"founders@pgdog.dev"` |
 
 ## Outputs

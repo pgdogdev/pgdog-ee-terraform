@@ -126,13 +126,13 @@ variable "pgdog_values" {
 variable "install_ingress_nginx" {
   description = "Install nginx-ingress-controller"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "install_cert_manager" {
   description = "Install cert-manager and LetsEncrypt ClusterIssuer"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "letsencrypt_email" {
