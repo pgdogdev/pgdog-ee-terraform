@@ -5,9 +5,33 @@ variable "aws_region" {
 }
 
 # RDS Variables
-variable "db_identifier" {
-  description = "Identifier for the RDS instance"
+variable "create_rds" {
+  description = "Whether to create the RDS instance"
+  type        = bool
+  default     = true
+}
+
+variable "external_database_url" {
+  description = "External database URL (required if create_rds is false)"
   type        = string
+  sensitive   = true
+  default     = null
+
+  validation {
+    condition     = var.create_rds || var.external_database_url != null
+    error_message = "external_database_url must be provided when create_rds is false"
+  }
+}
+
+variable "db_identifier" {
+  description = "Identifier for the RDS instance (required if create_rds is true)"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = !var.create_rds || var.db_identifier != null
+    error_message = "db_identifier must be provided when create_rds is true"
+  }
 }
 
 variable "postgres_version" {
@@ -36,13 +60,25 @@ variable "db_password" {
 }
 
 variable "db_subnet_group_name" {
-  description = "DB subnet group name"
+  description = "DB subnet group name (required if create_rds is true)"
   type        = string
+  default     = null
+
+  validation {
+    condition     = !var.create_rds || var.db_subnet_group_name != null
+    error_message = "db_subnet_group_name must be provided when create_rds is true"
+  }
 }
 
 variable "vpc_id" {
-  description = "VPC ID where the RDS instance will be created"
+  description = "VPC ID where the RDS instance will be created (required if create_rds is true)"
   type        = string
+  default     = null
+
+  validation {
+    condition     = !var.create_rds || var.vpc_id != null
+    error_message = "vpc_id must be provided when create_rds is true"
+  }
 }
 
 variable "db_backup_retention_period" {
@@ -73,6 +109,7 @@ variable "pgdog_namespace" {
 variable "pgdog_version" {
   description = "Default PgDog version (used for control, blue, and green unless overridden)"
   type        = string
+  default     = null
 }
 
 variable "pgdog_control_version" {
@@ -228,4 +265,35 @@ variable "ingress_ssl_redirect" {
   description = "Redirect HTTP to HTTPS globally"
   type        = bool
   default     = true
+}
+
+# Helm Chart Versions
+variable "pgdog_blue_helm_chart_version" {
+  description = "PgDog Helm chart version for blue deployment (uses latest if not specified)"
+  type        = string
+  default     = null
+}
+
+variable "pgdog_green_helm_chart_version" {
+  description = "PgDog Helm chart version for green deployment (uses latest if not specified)"
+  type        = string
+  default     = null
+}
+
+variable "pgdog_control_helm_chart_version" {
+  description = "PgDog Control Helm chart version (uses latest if not specified)"
+  type        = string
+  default     = null
+}
+
+variable "ingress_nginx_chart_version" {
+  description = "NGINX Ingress Controller Helm chart version (uses latest if not specified)"
+  type        = string
+  default     = null
+}
+
+variable "cert_manager_chart_version" {
+  description = "Cert Manager Helm chart version (uses latest if not specified)"
+  type        = string
+  default     = null
 }

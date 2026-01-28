@@ -1,8 +1,11 @@
 data "aws_vpc" "selected" {
-  id = var.vpc_id
+  count = var.create_rds ? 1 : 0
+  id    = var.vpc_id
 }
 
 resource "aws_security_group" "rds" {
+  count = var.create_rds ? 1 : 0
+
   name        = "${var.db_identifier}-rds-sg"
   description = "Security group for RDS PostgreSQL instance"
   vpc_id      = var.vpc_id
@@ -12,7 +15,7 @@ resource "aws_security_group" "rds" {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = [data.aws_vpc.selected.cidr_block]
+    cidr_blocks = [data.aws_vpc.selected[0].cidr_block]
   }
 
   egress {
@@ -28,12 +31,16 @@ resource "aws_security_group" "rds" {
 }
 
 resource "random_password" "db_password" {
+  count = var.create_rds ? 1 : 0
+
   length           = 32
   special          = true
   override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
 resource "aws_db_instance" "postgres" {
+  count = var.create_rds ? 1 : 0
+
   identifier = var.db_identifier
 
   engine         = "postgres"
@@ -46,11 +53,11 @@ resource "aws_db_instance" "postgres" {
 
   db_name  = var.db_name
   username = var.db_username
-  password = coalesce(var.db_password, random_password.db_password.result)
+  password = coalesce(var.db_password, random_password.db_password[0].result)
 
   multi_az               = false
   db_subnet_group_name   = var.db_subnet_group_name
-  vpc_security_group_ids = [aws_security_group.rds.id]
+  vpc_security_group_ids = [aws_security_group.rds[0].id]
 
   backup_retention_period = var.db_backup_retention_period
   skip_final_snapshot     = var.db_skip_final_snapshot

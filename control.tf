@@ -9,6 +9,10 @@ locals {
   pgdog_control_version = coalesce(var.pgdog_control_version, var.pgdog_version)
   pgdog_blue_token      = coalesce(var.pgdog_blue_token, random_uuid.pgdog_blue_token.result)
   pgdog_green_token     = coalesce(var.pgdog_green_token, random_uuid.pgdog_green_token.result)
+
+  database_url = var.create_rds ? (
+    "postgres://${aws_db_instance.postgres[0].username}:${urlencode(coalesce(var.db_password, random_password.db_password[0].result))}@${aws_db_instance.postgres[0].endpoint}/${aws_db_instance.postgres[0].db_name}"
+  ) : var.external_database_url
 }
 
 resource "helm_release" "pgdog_control" {
@@ -18,6 +22,7 @@ resource "helm_release" "pgdog_control" {
 
   repository = "https://helm-ee.pgdog.dev"
   chart      = "pgdog-control"
+  version    = var.pgdog_control_helm_chart_version
 
   values = [
     yamlencode({
@@ -37,7 +42,7 @@ resource "helm_release" "pgdog_control" {
       }
       env = merge(
         {
-          DATABASE_URL = "postgres://${aws_db_instance.postgres.username}:${urlencode(coalesce(var.db_password, random_password.db_password.result))}@${aws_db_instance.postgres.endpoint}/${aws_db_instance.postgres.db_name}"
+          DATABASE_URL = local.database_url
           SESSION_KEY  = random_bytes.session_key.base64
         },
         var.pgdog_control_env

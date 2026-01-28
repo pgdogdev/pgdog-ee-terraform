@@ -5,6 +5,7 @@ resource "helm_release" "pgdog_blue" {
 
   repository = "https://helm.pgdog.dev"
   chart      = "pgdog"
+  version    = var.pgdog_blue_helm_chart_version
 
   values = [
     yamlencode({
@@ -34,6 +35,7 @@ resource "helm_release" "pgdog_green" {
 
   repository = "https://helm.pgdog.dev"
   chart      = "pgdog"
+  version    = var.pgdog_green_helm_chart_version
 
   values = [
     yamlencode({
@@ -79,8 +81,8 @@ data "kubernetes_service_v1" "pgdog_green" {
 }
 
 locals {
-  pgdog_blue_version   = coalesce(var.pgdog_blue_version, var.pgdog_version)
-  pgdog_green_version  = coalesce(var.pgdog_green_version, var.pgdog_version)
+  pgdog_blue_version  = coalesce(var.pgdog_blue_version, var.pgdog_version)
+  pgdog_green_version = coalesce(var.pgdog_green_version, var.pgdog_version)
   pgdog_blue_endpoint = coalesce(
     var.pgdog_blue_endpoint != "" ? var.pgdog_blue_endpoint : null,
     try(data.kubernetes_service_v1.pgdog_blue[0].status[0].load_balancer[0].ingress[0].hostname, null),
