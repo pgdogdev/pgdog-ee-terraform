@@ -13,6 +13,8 @@ Terraform module for deploying PgDog Enterprise Edition on AWS with Kubernetes.
 
 ## Usage
 
+### With Managed RDS (Default)
+
 ```hcl
 module "pgdog" {
   source = "github.com/pgdogdev/pgdog-ee-terraform"
@@ -27,6 +29,33 @@ module "pgdog" {
   pgdog_values = file("${path.module}/values/pgdog.yaml")
 
   # Environment variables (merged with auto-generated DATABASE_URL, SESSION_KEY)
+  pgdog_control_env = {
+    GOOGLE_CLIENT_ID     = var.google_client_id
+    GOOGLE_CLIENT_SECRET = var.google_client_secret
+  }
+
+  tags = {
+    Environment = "production"
+  }
+}
+```
+
+### With External Database
+
+```hcl
+module "pgdog" {
+  source = "github.com/pgdogdev/pgdog-ee-terraform"
+
+  # Disable RDS creation
+  create_rds            = false
+  external_database_url = "postgresql://user:password@external-host:5432/pgdog"
+
+  # RDS-specific variables (db_identifier, db_subnet_group_name, vpc_id)
+  # are optional when create_rds is false
+
+  pgdog_version      = "1.0.0"
+  pgdog_ingress_host = "pgdog.example.com"
+
   pgdog_control_env = {
     GOOGLE_CLIENT_ID     = var.google_client_id
     GOOGLE_CLIENT_SECRET = var.google_client_secret
@@ -61,16 +90,23 @@ module "pgdog" {
 
 | Name | Description | Type |
 |------|-------------|------|
+| `pgdog_version` | PgDog image tag version | `string` |
+| `pgdog_ingress_host` | Ingress hostname for pgdog-control | `string` |
+
+### Conditionally Required (when create_rds = true)
+
+| Name | Description | Type |
+|------|-------------|------|
 | `db_identifier` | Identifier for the RDS instance | `string` |
 | `db_subnet_group_name` | DB subnet group name | `string` |
 | `vpc_id` | VPC ID where the RDS instance will be created | `string` |
-| `pgdog_version` | PgDog image tag version | `string` |
-| `pgdog_ingress_host` | Ingress hostname for pgdog-control | `string` |
 
 ### Optional - AWS/RDS
 
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
+| `create_rds` | Whether to create the RDS instance | `bool` | `true` |
+| `external_database_url` | External database URL (required if create_rds is false) | `string` | `null` |
 | `aws_region` | AWS region | `string` | `"us-east-1"` |
 | `postgres_version` | PostgreSQL engine version | `string` | `"18"` |
 | `db_name` | Name of the database to create | `string` | `"pgdog-ee"` |
@@ -117,17 +153,19 @@ module "pgdog" {
 
 | Name | Description | Sensitive |
 |------|-------------|-----------|
-| `db_endpoint` | RDS instance endpoint (host:port) | No |
-| `db_address` | RDS instance address (host only) | No |
-| `db_port` | RDS instance port | No |
-| `db_password` | RDS instance password | Yes |
-| `db_url` | PostgreSQL connection URL | Yes |
+| `db_endpoint` | RDS instance endpoint (host:port) - null if create_rds is false | No |
+| `db_address` | RDS instance address (host only) - null if create_rds is false | No |
+| `db_port` | RDS instance port - null if create_rds is false | No |
+| `db_password` | RDS instance password - null if create_rds is false | Yes |
+| `db_url` | PostgreSQL connection URL (RDS or external) | Yes |
 | `pgdog_blue_token` | API token for blue deployment | Yes |
 | `pgdog_green_token` | API token for green deployment | Yes |
 
 ## RDS Configuration
 
-The module creates an RDS PostgreSQL instance with:
+### Managed RDS Instance (Default)
+
+By default, the module creates an RDS PostgreSQL instance with:
 
 - **Instance class**: db.m5.large
 - **Storage**: 100GB initial (gp3)
@@ -135,6 +173,31 @@ The module creates an RDS PostgreSQL instance with:
 - **Multi-AZ**: Disabled
 
 A security group is automatically created allowing PostgreSQL traffic (port 5432) from within the VPC only.
+
+### Using an External Database
+
+To use an external PostgreSQL database instead of creating an RDS instance:
+
+```hcl
+module "pgdog" {
+  source = "github.com/pgdogdev/pgdog-ee-terraform"
+
+  # Disable RDS creation
+  create_rds = false
+
+  # Provide external database URL
+  external_database_url = "postgresql://user:password@host:5432/dbname"
+
+  # RDS-specific variables (db_identifier, db_subnet_group_name, vpc_id)
+  # are optional when create_rds is false
+
+  # ... other variables
+}
+```
+
+**Note:** When `create_rds = false`:
+- The `external_database_url` variable is required
+- RDS-specific variables (`db_identifier`, `db_subnet_group_name`, `vpc_id`) are optional
 
 ## Helm Charts
 
