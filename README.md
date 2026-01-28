@@ -6,7 +6,8 @@ Terraform module for deploying PgDog Enterprise Edition on AWS with Kubernetes.
 
 - RDS PostgreSQL database with storage autoscaling
 - PgDog Control Plane (Helm chart)
-- PgDog Proxy (Helm chart)
+- PgDog Proxy with Blue/Green deployments
+- Route53 DNS switching between deployments
 - nginx-ingress-controller (optional)
 - cert-manager with LetsEncrypt (optional)
 
@@ -85,9 +86,24 @@ module "pgdog" {
 |------|-------------|------|---------|
 | `pgdog_namespace` | Kubernetes namespace for pgdog | `string` | `"pgdog-cloud"` |
 | `pgdog_redis_memory` | Memory allocation for Redis | `string` | `"128Mi"` |
-| `pgdog_control_env` | Additional env vars for pgdog-control (merged with DATABASE_URL, SESSION_KEY) | `map(string)` | `{}` |
-| `pgdog_control_values` | Additional Helm values for pgdog-control (YAML string) | `string` | `""` |
-| `pgdog_values` | Additional Helm values for pgdog (YAML string) | `string` | `""` |
+| `pgdog_control_env` | Additional env vars for pgdog-control | `map(string)` | `{}` |
+| `pgdog_control_values` | Additional Helm values for pgdog-control (YAML) | `string` | `""` |
+| `pgdog_blue_version` | Blue deployment version (defaults to pgdog_version) | `string` | `null` |
+| `pgdog_green_version` | Green deployment version (defaults to pgdog_version) | `string` | `null` |
+| `pgdog_blue_values` | Additional Helm values for pgdog-blue (YAML) | `string` | `""` |
+| `pgdog_green_values` | Additional Helm values for pgdog-green (YAML) | `string` | `""` |
+| `pgdog_token_emails` | Emails to assign to both blue/green tokens | `list(string)` | `[]` |
+
+### Optional - Blue/Green DNS
+
+| Name | Description | Type | Default |
+|------|-------------|------|---------|
+| `pgdog_create_dns_record` | Create Route53 DNS record | `bool` | `false` |
+| `pgdog_active_deployment` | Active deployment for DNS (blue/green) | `string` | `"blue"` |
+| `pgdog_route53_zone_id` | Route53 hosted zone ID | `string` | `""` |
+| `pgdog_route53_record_name` | DNS record name | `string` | `""` |
+| `pgdog_blue_endpoint` | Override blue endpoint | `string` | `""` |
+| `pgdog_green_endpoint` | Override green endpoint | `string` | `""` |
 
 ### Optional - Infrastructure
 
@@ -106,6 +122,8 @@ module "pgdog" {
 | `db_port` | RDS instance port | No |
 | `db_password` | RDS instance password | Yes |
 | `db_url` | PostgreSQL connection URL | Yes |
+| `pgdog_blue_token` | API token for blue deployment | Yes |
+| `pgdog_green_token` | API token for green deployment | Yes |
 
 ## RDS Configuration
 
@@ -127,9 +145,97 @@ Installed from `https://helm-ee.pgdog.dev`. Automatically configured with:
 - `DATABASE_URL` - Connection string to RDS
 - `SESSION_KEY` - Auto-generated 64-byte key for Actix Web sessions
 
-### pgdog
+### pgdog (Blue/Green)
 
-Installed from `https://helm.pgdog.dev`.
+Installed from `https://helm.pgdog.dev`. Two deployments are created:
+
+- `pgdog-blue` - Blue deployment
+- `pgdog-green` - Green deployment
+
+Each deployment gets its own API token registered with the control plane.
+
+## Blue/Green Deployments
+
+The module deploys two instances of pgdog (`pgdog-blue` and `pgdog-green`) to enable zero-downtime upgrades and rollbacks.
+
+### How It Works
+
+1. Both blue and green deployments run simultaneously
+2. Each has its own version and API token
+3. A Route53 CNAME record points to the active deployment
+4. Switch traffic by changing `pgdog_active_deployment`
+
+### Version Management
+
+```hcl
+module "pgdog" {
+  # ...
+
+  # Default version for all deployments
+  pgdog_version = "1.0.0"
+
+  # Override specific deployments (optional)
+  pgdog_blue_version  = "1.0.0"  # Current stable
+  pgdog_green_version = "1.1.0"  # Testing new version
+}
+```
+
+### DNS Switching
+
+```hcl
+module "pgdog" {
+  # ...
+
+  # Enable Route53 DNS record
+  pgdog_create_dns_record   = true
+  pgdog_route53_zone_id     = "Z02774561036RDZXXL5TW"
+  pgdog_route53_record_name = "pgdog.example.com"
+
+  # Switch traffic: "blue" or "green"
+  pgdog_active_deployment = "blue"
+}
+```
+
+To switch traffic to green:
+
+```hcl
+pgdog_active_deployment = "green"
+```
+
+Then run `terraform apply`.
+
+### Token Assignment
+
+Assign users to both deployments:
+
+```hcl
+module "pgdog" {
+  # ...
+
+  pgdog_token_emails = [
+    "alice@example.com",
+    "bob@example.com",
+  ]
+}
+```
+
+Each email is assigned to both blue and green tokens, allowing seamless switching.
+
+### Deployment-Specific Values
+
+```hcl
+module "pgdog" {
+  # ...
+
+  pgdog_blue_values = yamlencode({
+    replicas = 2
+  })
+
+  pgdog_green_values = yamlencode({
+    replicas = 3
+  })
+}
+```
 
 ## Passing Custom Values
 
