@@ -19,7 +19,7 @@ variable "postgres_version" {
 variable "db_name" {
   description = "Name of the database to create"
   type        = string
-  default     = "pgdog-ee"
+  default     = "postgres"
 }
 
 variable "db_username" {
@@ -71,8 +71,26 @@ variable "pgdog_namespace" {
 }
 
 variable "pgdog_version" {
-  description = "PgDog image tag version"
+  description = "Default PgDog version (used for control, blue, and green unless overridden)"
   type        = string
+}
+
+variable "pgdog_control_version" {
+  description = "PgDog control image tag version (defaults to pgdog_version)"
+  type        = string
+  default     = null
+}
+
+variable "pgdog_blue_version" {
+  description = "PgDog blue deployment chart version (defaults to pgdog_version)"
+  type        = string
+  default     = null
+}
+
+variable "pgdog_green_version" {
+  description = "PgDog green deployment chart version (defaults to pgdog_version)"
+  type        = string
+  default     = null
 }
 
 variable "pgdog_ingress_host" {
@@ -116,8 +134,73 @@ variable "pgdog_control_env" {
   default     = {}
 }
 
-variable "pgdog_values" {
-  description = "Additional Helm values for pgdog chart (YAML string)"
+variable "pgdog_blue_token" {
+  description = "API token for pgdog-blue (generated if not provided)"
+  type        = string
+  default     = null
+}
+
+variable "pgdog_green_token" {
+  description = "API token for pgdog-green (generated if not provided)"
+  type        = string
+  default     = null
+}
+
+variable "pgdog_token_emails" {
+  description = "List of emails to assign to both blue and green tokens"
+  type        = list(string)
+  default     = []
+}
+
+variable "pgdog_blue_values" {
+  description = "Additional Helm values for pgdog-blue chart (YAML string)"
+  type        = string
+  default     = ""
+}
+
+variable "pgdog_green_values" {
+  description = "Additional Helm values for pgdog-green chart (YAML string)"
+  type        = string
+  default     = ""
+}
+
+# Blue/Green DNS Variables
+variable "pgdog_create_dns_record" {
+  description = "Whether to create the Route53 DNS record for pgdog"
+  type        = bool
+  default     = false
+}
+
+variable "pgdog_active_deployment" {
+  description = "Active deployment for DNS routing (blue or green)"
+  type        = string
+  default     = "blue"
+  validation {
+    condition     = contains(["blue", "green"], var.pgdog_active_deployment)
+    error_message = "pgdog_active_deployment must be 'blue' or 'green'"
+  }
+}
+
+variable "pgdog_route53_zone_id" {
+  description = "Route53 hosted zone ID for pgdog DNS record"
+  type        = string
+  default     = ""
+}
+
+variable "pgdog_route53_record_name" {
+  description = "DNS record name for pgdog (e.g., pgdog.example.com)"
+  type        = string
+  default     = ""
+}
+
+variable "pgdog_blue_endpoint" {
+  description = "Endpoint for blue deployment (e.g., load balancer DNS name)"
+  type        = string
+  default     = ""
+}
+
+variable "pgdog_green_endpoint" {
+  description = "Endpoint for green deployment (e.g., load balancer DNS name)"
   type        = string
   default     = ""
 }

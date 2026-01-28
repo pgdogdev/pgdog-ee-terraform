@@ -2,6 +2,15 @@ resource "random_bytes" "session_key" {
   length = 64
 }
 
+resource "random_uuid" "pgdog_blue_token" {}
+resource "random_uuid" "pgdog_green_token" {}
+
+locals {
+  pgdog_control_version = coalesce(var.pgdog_control_version, var.pgdog_version)
+  pgdog_blue_token      = coalesce(var.pgdog_blue_token, random_uuid.pgdog_blue_token.result)
+  pgdog_green_token     = coalesce(var.pgdog_green_token, random_uuid.pgdog_green_token.result)
+}
+
 resource "helm_release" "pgdog_control" {
   name             = "pgdog-cloud"
   namespace        = var.pgdog_namespace
@@ -13,7 +22,7 @@ resource "helm_release" "pgdog_control" {
   values = [
     yamlencode({
       image = {
-        tag = var.pgdog_version
+        tag = local.pgdog_control_version
       }
       ingress = {
         host = var.pgdog_ingress_host
@@ -43,4 +52,46 @@ resource "helm_release" "pgdog_control" {
     helm_release.cert_manager,
     kubectl_manifest.letsencrypt_issuer
   ]
+}
+
+resource "null_resource" "pgdog_blue_token" {
+  depends_on = [helm_release.pgdog_control]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      kubectl exec -n ${var.pgdog_namespace} deployment/pgdog-cloud-control -- control token --token ${local.pgdog_blue_token} --name Blue
+    EOT
+  }
+}
+
+resource "null_resource" "pgdog_green_token" {
+  depends_on = [helm_release.pgdog_control]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      kubectl exec -n ${var.pgdog_namespace} deployment/pgdog-cloud-control -- control token --token ${local.pgdog_green_token} --name Green
+    EOT
+  }
+}
+
+resource "null_resource" "pgdog_blue_token_assignments" {
+  for_each   = toset(var.pgdog_token_emails)
+  depends_on = [null_resource.pgdog_blue_token]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      kubectl exec -n ${var.pgdog_namespace} deployment/pgdog-cloud-control -- control assign-token --email ${each.key} --token ${local.pgdog_blue_token}
+    EOT
+  }
+}
+
+resource "null_resource" "pgdog_green_token_assignments" {
+  for_each   = toset(var.pgdog_token_emails)
+  depends_on = [null_resource.pgdog_green_token]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      kubectl exec -n ${var.pgdog_namespace} deployment/pgdog-cloud-control -- control assign-token --email ${each.key} --token ${local.pgdog_green_token}
+    EOT
+  }
 }
