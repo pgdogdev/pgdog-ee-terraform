@@ -59,6 +59,18 @@ variable "db_password" {
   default     = null
 }
 
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t4g.small"
+}
+
+variable "db_allocated_storage" {
+  description = "Initial allocated storage in GB"
+  type        = number
+  default     = 20
+}
+
 variable "db_subnet_group_name" {
   description = "DB subnet group name (required if create_rds is true)"
   type        = string
