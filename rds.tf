@@ -33,9 +33,8 @@ resource "aws_security_group" "rds" {
 resource "random_password" "db_password" {
   count = var.create_rds ? 1 : 0
 
-  length           = 32
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
+  length  = 32
+  special = false
 }
 
 resource "aws_db_instance" "postgres" {
@@ -46,14 +45,16 @@ resource "aws_db_instance" "postgres" {
   engine         = "postgres"
   engine_version = var.postgres_version
 
-  instance_class        = "db.m5.large"
-  allocated_storage     = 100
+  instance_class        = var.db_instance_class
+  allocated_storage     = var.db_allocated_storage
   max_allocated_storage = 1000
   storage_type          = "gp3"
+  storage_encrypted     = true
 
-  db_name  = var.db_name
-  username = var.db_username
-  password = coalesce(var.db_password, random_password.db_password[0].result)
+  db_name             = var.db_name
+  username            = var.db_username
+  password_wo         = coalesce(var.db_password, random_password.db_password[0].result)
+  password_wo_version = 1
 
   multi_az               = false
   db_subnet_group_name   = var.db_subnet_group_name
